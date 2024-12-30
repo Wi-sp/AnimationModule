@@ -1,0 +1,621 @@
+--  Original By @Yarik_superpro https://github.com/ProudNamed
+
+-- Revamped By w.is.p On Discord 
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local table_create = table.create
+local cframe_zero = CFrame.new(0, 0, 0)
+
+local function loadModule(url)
+    return loadstring(game:HttpGet(url))()
+end
+
+local PriorityTable = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/Priority")
+local ConvertToTable = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/ConvertToTable")
+local AutoGetMotor6D = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/AutoGetMotor6D")
+local GetFrameInBetween = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/GetFrameInBetween")
+local GroupTamplate = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/GroupTemplate")
+local ReturnableTypes = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/ReturnableTypes")
+
+type AnimType = ReturnableTypes.AnimationSequance
+type SettingsType = ReturnableTypes.Setting
+type Motor6DorBones = "Motor6D" | "Bone" | nil
+export type AT = AnimType
+
+-- Utility functions
+local function ReturnValuesThatFound(tab, val)
+    local a = {}
+    for i, v in tab do
+        if v == val then
+            table.insert(a, i)
+        end
+    end
+    return a
+end
+
+local function ReturnFadingAnimations(Group: {})
+    local tab = {}
+    for i, v in Group["i"] do
+        if v.FadingAnimation then
+            table.insert(tab, i)
+        end
+    end
+    return tab
+end
+
+local function SafeCallEvent(event, ...)
+    if event and typeof(event) == "Instance" and event:IsA("BindableEvent") then
+        event:Fire(...)
+    end
+end
+
+local function deepCloneTable(tbl)
+    local newTable = {}
+    for key, value in pairs(tbl) do
+        newTable[key] = type(value) == "table" and deepCloneTable(value) or (typeof(value) == "Instance" and value:Clone() or value)
+    end
+    return newTable
+end
+
+local function CallEvents(Animation, Call: BindableEvent, Time: number, MarkersUsed)
+    if not Call or typeof(Call) ~= "Instance" or not Call:IsA("BindableEvent") or not Time or type(Time) ~= "number" then return end
+    local Data = nil
+    for i, v in Animation do
+        if v.Time <= Time and v.Events and not MarkersUsed[tostring(i)] then
+            Data = (i == #Animation or Animation[i + 1].Time >= Time) and i or Data
+        end
+    end
+    if Data then
+        for _, v in Animation[Data]["Events"] do
+            Call:Fire("KeyframeMarker", v["Name"], v["Value"])
+        end
+    end
+    return Data
+end
+
+local function TransformMotor6D(MotorListm, MotorName: string, Cframe: CFrame)
+    if MotorListm and type(MotorListm) == "table" then
+        local a = MotorListm[MotorName]
+        if a and (typeof(a) == "Instance" and (a:IsA("Motor6D") or a:IsA("Bone"))) then
+            a.Transform = Cframe
+        end
+    end
+end
+
+local function ilerp(value: number, minimum: number, maximum: number): number
+    if not value or not minimum or not maximum then warn("Empty") return 0 end
+    if type(value) ~= "number" or type(minimum) ~= "number" or type(maximum) ~= "number" then warn("Must be a number") return 0 end
+    return (minimum == maximum) and 1 or (value - minimum) / (maximum - minimum)
+end
+
+local IsClient = true
+local UpdateEachFrame = RunService.PreSimulation
+
+local function GetPlayingTracks(self)
+    local Group = self["Group"]
+    local list = {}
+    if not Group then return nil end
+    for i, v in Group["i"] do
+        if v["IsPlaying"] then
+            list[i] = i
+        end
+    end
+    return list
+end
+
+local function TableLen(e): number
+    local ea = 0
+    for _ in e do
+        ea += 1
+    end
+    return ea
+end
+
+local function FramesWhereJointAppeared(JointName, KeyFrameTable)
+    local ret = {}
+    for i, v in KeyFrameTable do
+        if v.Data[JointName] then
+            ret[i] = i
+        end
+    end
+    return ret
+end
+
+local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyFrameTable: any, Animate: any, CurrentWeight: number)
+    if Animate == nil then Animate = true end
+    local returned, weight = nil, 1
+    local seen_in = FramesWhereJointAppeared(JointName, KeyFrameTable)
+    local FirstIndex, SecondIndex = 1, 1
+    for i, v in seen_in do
+        local a = KeyFrameTable[i]
+        if a.Time <= Time then
+            FirstIndex, SecondIndex = i, i
+        else
+            SecondIndex = i
+            break
+        end
+    end
+    local FirstFrame, SecondFrame = KeyFrameTable[FirstIndex], KeyFrameTable[SecondIndex]
+    weight = SecondFrame["Data"][JointName]["Weight"]
+    if Animate == nil or Animate == "Animate" then
+        local LinearLerpValue = ilerp(Time, FirstFrame.Time, SecondFrame.Time)
+        local JointDataFirst, JointDataSecond = FirstFrame["Data"][JointName], SecondFrame["Data"][JointName]
+        local EasingLerp = TweenService:GetValue(LinearLerpValue, JointDataSecond.EasingStyle, JointDataSecond.EasingDirection)
+        local JointCFrame_first, JointCFrame_second = JointDataFirst["CFrame"], JointDataSecond["CFrame"]
+        local JointWeight_first, JointWeight_second = JointDataFirst["Weight"], JointDataSecond["Weight"]
+        if JointWeight_first < 1 then
+            JointCFrame_first = JointCFrame_first:Lerp(cframe_zero, ilerp(JointWeight_first, 0, 1))
+        end
+        if JointWeight_second < 1 then
+            JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, ilerp(JointWeight_second, 0, 1))
+        end
+        return JointCFrame_first:Lerp(JointCFrame_second, EasingLerp), weight
+    else
+        return (Animate == "First") and FirstFrame["Data"][JointName]["CFrame"] or SecondFrame["Data"][JointName]["CFrame"]
+    end
+end
+
+local function ResetMotors6D(motorlist, self)
+    local group = self["Group"]
+    if not group then
+        for i, _ in motorlist do
+            TransformMotor6D(motorlist, i, cframe_zero)
+        end
+    else
+        if TableLen(GetPlayingTracks(self)) == 0 then
+            for i, _ in motorlist do
+                TransformMotor6D(motorlist, i, cframe_zero)
+            end
+        end
+    end
+end
+
+--==========================================================
+
+local module = {}
+module.__index = module
+
+function module.CreateModuleGroup()
+    return deepCloneTable(GroupTamplate)
+end
+
+local NotPassedSettings = {
+    ["StartsAt"] = 0;
+    ["CanTransformMotor6D"] = true; -- Don't touch
+    ["Animate"] = "Animate"; -- "Animate"|"First"|"Last"|nil
+    ["UpsyncThePlaying"] = "Default"; -- "Default"|"Ramp"|"SpeedUp"|nil
+}
+
+local MethodLockEditingTable = {
+    __newindex = function(table, index, value)
+        if not NotPassedSettings[index] then
+            warn("Table is edit only!")
+            return nil
+        end
+        return value
+    end,
+}
+
+module.AutoGetMotor6D = AutoGetMotor6D
+module.KeyFrameSequanceToTable = ConvertToTable
+
+function module.new(Motor6DTable: Model | {}, KeyFrameSequance: KeyframeSequence | {}, AnimationGroup: ModuleScript?, Settings: SettingsType, Motor6DorBone: Motor6DorBones): AnimType
+    local self = setmetatable({}, module)
+    self["Looped"] = false
+    self["TimePosition"] = 0
+    self["IsPlaying"] = false
+    self["Speed"] = 1
+    self["Weight"] = 1
+    self["WeightCurrent"] = 1
+    self["WeightTarget"] = 0
+    self["Priority"] = Enum.AnimationPriority.Core
+    self["Name"] = ""
+    if typeof(Motor6DTable) == "Instance" and Motor6DTable:IsA("Model") then
+        Motor6DTable = AutoGetMotor6D(Motor6DTable, Motor6DorBone)
+    end
+    self["Motor6D"] = Motor6DTable
+    if not KeyFrameSequance then
+        error(`Parameter "KeyFrameSequance" cannot be nil`)
+    end
+
+    if typeof(KeyFrameSequance) == "Instance" and KeyFrameSequance:IsA("KeyframeSequence") then
+        local Animation, Looped, Priority = ConvertToTable(KeyFrameSequance)
+        self.Animation = Animation
+        self["Priority"] = Priority
+        self["Looped"] = Looped
+    elseif typeof(KeyFrameSequance) == "table" then
+        self.Animation = KeyFrameSequance
+    else
+        error(`Invalid format for "KeyFrameSequance", format sent: {typeof(KeyFrameSequance)}`)
+    end
+
+    self.Settings = Settings or NotPassedSettings
+    self["Length"] = self.Animation[#self.Animation].Time
+
+    for i, v in NotPassedSettings do
+        if not self.Settings[i] then
+            self.Settings[i] = v
+        end
+    end
+
+    local event = Instance.new("BindableEvent")
+    local EndedEvent, StoppedEvent, DidLoopEvent = Instance.new("BindableEvent"), Instance.new("BindableEvent"), Instance.new("BindableEvent")
+
+    self["_fireEnded"] = EndedEvent
+    self["_fireStopped"] = StoppedEvent
+    self["_fireDidLoop"] = DidLoopEvent
+    self["_fireEvent"] = event
+    self.Ended = EndedEvent.Event
+    self.Stopped = StoppedEvent.Event
+    self.DidLoop = DidLoopEvent.Event
+    self.Event = event
+
+    setmetatable(self.Settings, MethodLockEditingTable)
+
+    if AnimationGroup and typeof(AnimationGroup) == "Instance" and AnimationGroup:IsA("ModuleScript") then
+        self["Group"] = require(AnimationGroup)
+        local AnimationGroup = self["Group"]
+        local id = HttpService:GenerateGUID(false)
+        local foundDupe = false
+
+        repeat
+            foundDupe = false
+            for i, _ in AnimationGroup["i"] do
+                if id == i then
+                    foundDupe = true
+                    break
+                end
+            end
+            if foundDupe then
+                id = HttpService:GenerateGUID(false)
+            end
+        until not foundDupe
+
+        self.DataID = id
+        AnimationGroup["i"][id] = self
+        return AnimationGroup["i"][id], id
+    else
+        return self
+    end
+end
+
+function module:StopFading()
+    self.FadeDelta = nil
+    self.FadeMax = nil
+    self.FadeTime = nil
+    self.FadingAnimation = nil
+    self._tempLoop = nil
+    self.Settings.CanTransformMotor6D = false
+end
+
+function module:Cancel(DontResetMotor6D: boolean)
+    local save = self.Settings.CurrentlyAt
+    self.Settings.CanTransformMotor6D = false
+    self["IsPlaying"] = false
+    self["TimePosition"] = 0
+    self:StopFading()
+    if self["_Connection"] and typeof(self["_Connection"]) == "RBXScriptConnection" then
+        self["_Connection"]:Disconnect()
+    end
+    if self.Task and typeof(self.Task) == "thread" then
+        coroutine.close(self.Task)
+    end
+    if not DontResetMotor6D and self["Group"] then
+        ResetMotors6D(self["Motor6D"], self)
+    end
+    SafeCallEvent(self["_fireEvent"], "MarkerSignal", "Canceled")
+    return save
+end
+
+function module:Freeze()
+    self["IsPlaying"] = false
+    SafeCallEvent(self["_fireEvent"], "MarkerSignal", "Frozen")
+    self.Settings.CanTransformMotor6D = true
+    return self.Settings.CurrentlyAt
+end
+
+function module:UnFreeze()
+    self["IsPlaying"] = true
+    SafeCallEvent(self["_fireEvent"], "MarkerSignal", "UnFrozen")
+    if self.Group then
+        for i, v in self.Group["i"] do
+            if self["Group"]["i"][i].Settings.CanTransformMotor6D then
+                self["Group"]["i"][i].Settings.CanTransformMotor6D = false
+            end
+        end
+    end
+    self.Settings.CanTransformMotor6D = true
+end
+
+function module:Destroy()
+    self:Cancel()
+    if self.Group then
+        self.Group[self.DataID] = nil
+    end
+    self = nil
+end
+
+function module:AdjustWeight(weight: number, fadeTime: number)
+    self["Weight"] = weight
+    self["WeightCurrent"] = weight
+    self["WeightTarget"] = 0
+    self.FadeMax = fadeTime
+    self.FadeTime = fadeTime
+end
+
+function module:Stop(FadeTime: number)
+    if self.FadingAnimation or not self["IsPlaying"] then return end
+    self["_tempLoop"] = true
+    SafeCallEvent(self["_fireStopped"])
+    if FadeTime then
+        if type(FadeTime) ~= "number" then FadeTime = 0.15 end
+        if not self.FadeTime or self.FadeTime == 0 then
+            self.FadeTime = FadeTime
+        end
+        self["WeightCurrent"] = self["Weight"]
+        self["WeightTarget"] = 0
+        self["_tempLoop"] = true
+        self.FadingAnimation = true
+        self["FadeMax"] = self.FadeTime
+        self["FadeDelta"] = self["TimePosition"]
+        self["IsPlaying"] = true
+    else
+        self["IsPlaying"] = false
+        self.Settings.CanTransformMotor6D = false
+    end
+end
+
+function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed: number)
+    self["WeightCurrent"] = Weight
+    self["Weight"] = Weight
+    self:StopFading()
+    if self["_Connection"] and typeof(self["_Connection"]) == "RBXScriptConnection" then
+        self["_Connection"]:Disconnect()
+    end
+    if self.Task and typeof(self.Task) == "thread" then
+        coroutine.close(self.Task)
+    end
+
+    if FadeTime and type(FadeTime) == "number" then
+        self["FadeTime"] = FadeTime
+        self["FadeMax"] = FadeTime
+    end
+
+    local IsGroup, MadeOneLoop, FirstFramePlayed, UsedIt = false, false, true, false
+    local UsedEventMarkers = {}
+    if TimeStamp and type(TimeStamp) == "number" then
+        TimeStamp = math.min(TimeStamp, self["Length"])
+        self["TimePosition"] = TimeStamp
+    end
+
+    if self["Group"] and typeof(self["Group"]) == "table" then
+        if self["Group"]["i"][self.DataID] == self then
+            IsGroup = true
+            for i, v in self["Group"]["i"] do
+                v.Settings.CanTransformMotor6D = false
+            end
+            self.Settings.CanTransformMotor6D = true
+        end
+    end
+
+    self["_debugSpeed"] = nil
+    SafeCallEvent(self["_fireEvent"], "MarkerSignal", "Play")
+    self["Task"] = coroutine.create(function()
+        self["IsPlaying"] = true
+        local connection: RBXScriptConnection
+        connection = UpdateEachFrame:Connect(function(delta1: number, delta2: number)
+            if not self["IsPlaying"] then return end
+            if self["FadeTime"] then
+                self["FadeTime"] = math.max(self["FadeTime"], 0)
+            end
+
+            local delta = delta1 * (self["Speed"] ~= 1 and self["Speed"] or 1)
+            local CurrentlyAtDelta = self["TimePosition"] + delta
+            local OkTest = CallEvents(self.Animation, self["_fireEvent"], CurrentlyAtDelta, UsedEventMarkers)
+            if OkTest then
+                UsedEventMarkers = {}
+                UsedEventMarkers[tostring(OkTest)] = OkTest
+            end
+
+            if CurrentlyAtDelta < 0 then
+                CurrentlyAtDelta = self["Length"] - math.abs(CurrentlyAtDelta)
+                self["TimePosition"] = CurrentlyAtDelta
+                MadeOneLoop = true
+                if not self.FadingAnimation and (self["Looped"] or self["_tempLoop"]) then
+                    SafeCallEvent(self["_fireDidLoop"], false)
+                    self["TimePosition"] = self.Settings.StartsAt
+                    UsedEventMarkers = {}
+                    FirstFramePlayed = true
+                else
+                    self["IsPlaying"] = false
+                    SafeCallEvent(self["_fireStopped"])
+                    if self["FadeTime"] and self.FadeTime > 0 then
+                        self.WeightTarget = 0
+                        self.FadingAnimation = true
+                        self["IsPlaying"] = true
+                        self["FadeDelta"] = self["TimePosition"]
+                        self["TimePosition"] = self.Settings.StartsAt
+                        self["_tempLoop"] = true
+                        return
+                    end
+                    self["_tempLoop"] = nil
+                    ResetMotors6D(self["Motor6D"], self)
+                    UsedEventMarkers = {}
+                    connection:Disconnect()
+                    SafeCallEvent(self["_fireEnded"])
+                    coroutine.close(self["Task"])
+                end
+            end
+
+            if CurrentlyAtDelta > self["Length"] then
+                if self["Looped"] then
+                    CurrentlyAtDelta = math.abs(self["Length"] - CurrentlyAtDelta)
+                    SafeCallEvent(self["_fireDidLoop"], true)
+                else
+                    CurrentlyAtDelta = self["Length"]
+                end
+            end
+
+            if self.FadeDelta then
+                CurrentlyAtDelta = self.FadeDelta
+            end
+
+            local CurrentPositionOfJoints = {}
+            local PlayingAnimations = GetPlayingTracks(self)
+            for i, v in self.Animation do
+                for _i, _v in v["Data"] do
+                    if not CurrentPositionOfJoints[_i and CurrentlyAtDelta > v.Time] then
+                        local cframe, weight = GetFinalPositionOfJointTime(_i, CurrentlyAtDelta, self.Animation, self.Settings.Animate, self["WeightCurrent"])
+                        if cframe then
+                            CurrentPositionOfJoints[_i] = cframe
+                        end
+                    end
+                end
+            end
+
+            if IsGroup then
+                if not PlayingAnimations or (TableLen(PlayingAnimations) == 1 and self.DataID == PlayingAnimations[self.DataID]) then
+                    for i, v in CurrentPositionOfJoints do
+                        TransformMotor6D(self.Motor6D, i, v)
+                    end
+                else
+                    local GiveItselfCanTransform = self.Settings.CanTransformMotor6D
+                    for i, v in PlayingAnimations do
+                        if self["Group"]["i"][i].Settings.CanTransformMotor6D then
+                            self["Group"]["i"][i].Settings.CanTransformMotor6D = false
+                        end
+                    end
+                    self.Settings.CanTransformMotor6D = true
+                    GiveItselfCanTransform = self.Settings.CanTransformMotor6D
+
+                    if GiveItselfCanTransform then
+                        local Priorities = {}
+                        for i, v in PlayingAnimations do
+                            Priorities[i] = self["Group"]["i"][i].Priority
+                        end
+
+                        local OnlyPlayAnimations = {}
+                        for i, v in PriorityTable do
+                            local a = ReturnValuesThatFound(Priorities, v)
+                            if TableLen(a) > 0 then
+                                OnlyPlayAnimations = a
+                                break
+                            end
+                        end
+
+                        local CurrentPositionOfJoints = {["main"] = {}}
+                        local CurrentWeightOfJoints = {["main"] = 0}
+                        for i, v in OnlyPlayAnimations do
+                            CurrentWeightOfJoints[v] = self["Group"]["i"][v].Weight
+                        end
+                        for __i, __v in OnlyPlayAnimations do
+                            local Anim = self["Group"]["i"][__v]
+                            for i, v in Anim.Animation do
+                                for _i, _v in v["Data"] do
+                                    if Anim["TimePosition"] <= v.Time then
+                                        local cframe, weight = GetFinalPositionOfJointTime(_i, Anim["TimePosition"], Anim.Animation, Anim.Settings.Animate, Anim["WeightCurrent"])
+                                        if cframe then
+                                            CurrentPositionOfJoints[__v] = CurrentPositionOfJoints[__v] or {}
+                                            CurrentPositionOfJoints[__v][_i] = cframe
+                                        end
+                                    end
+                                end
+                            end
+
+                            for i, v in CurrentPositionOfJoints do
+                                for _i, _v in v do
+                                    if CurrentPositionOfJoints["main"][_i] == nil then
+                                        CurrentPositionOfJoints["main"][_i] = _v or cframe_zero
+                                    else
+                                        if CurrentWeightOfJoints[i] == nil then CurrentWeightOfJoints[i] = 0 end
+                                        if CurrentWeightOfJoints["main"] > CurrentWeightOfJoints[i] then
+                                            CurrentPositionOfJoints["main"][_i] = _v:Lerp(CurrentPositionOfJoints["main"][_i], 0.5)
+                                        elseif CurrentWeightOfJoints["main"] < CurrentWeightOfJoints[i] then
+                                            CurrentWeightOfJoints["main"] = CurrentWeightOfJoints[i]
+                                            CurrentPositionOfJoints["main"][_i] = _v:Lerp(CurrentPositionOfJoints["main"][_i], 0.5)
+                                        elseif CurrentWeightOfJoints["main"] == CurrentWeightOfJoints[i] then
+                                            CurrentPositionOfJoints["main"][_i] = CurrentPositionOfJoints["main"][_i]:Lerp(_v, 0.5)
+                                        end
+                                    end
+                                end
+                            end
+
+                            for i, v in CurrentPositionOfJoints["main"] do
+                                TransformMotor6D(Anim.Motor6D, i, v)
+                            end
+                        end
+                    end
+                end
+            else
+                for i, v in CurrentPositionOfJoints do
+                    TransformMotor6D(self.Motor6D, i, v)
+                end
+            end
+
+            if not self.FadingAnimation then
+                if CurrentlyAtDelta >= self["Length"] then
+                    CurrentlyAtDelta = self["Length"]
+                    MadeOneLoop = true
+                    if self["Looped"] or self["_tempLoop"] then
+                        self["TimePosition"] = self.Settings.StartsAt
+                        CurrentlyAtDelta = self.Settings.StartsAt
+                        UsedEventMarkers = {}
+                        FirstFramePlayed = true
+                        SafeCallEvent(self["_fireDidLoop"], true)
+                        return
+                    else
+                        self["IsPlaying"] = false
+                        SafeCallEvent(self["_fireStopped"])
+                        if self["FadeTime"] and self.FadeTime > 0 then
+                            self.WeightTarget = 0
+                            self.FadingAnimation = true
+                            self["IsPlaying"] = true
+                            self["FadeDelta"] = self["TimePosition"]
+                            self["_tempLoop"] = true
+                        end
+                        self["TimePosition"] = self.Settings.StartsAt
+                        self["_tempLoop"] = nil
+                        ResetMotors6D(self["Motor6D"], self)
+                        UsedEventMarkers = {}
+                        connection:Disconnect()
+                        SafeCallEvent(self["_fireEnded"])
+                        coroutine.close(self["Task"])
+                    end
+                else
+                    self["TimePosition"] = CurrentlyAtDelta
+                end
+            end
+
+            if self["FadingAnimation"] then
+                local FadeTime = self.FadeTime - delta2
+                self.FadeTime = math.max(FadeTime, 0)
+                local Pregress = ilerp(self.FadeTime, 0, self.FadeMax)
+                self["WeightCurrent"] = ilerp(Pregress, self["WeightTarget"], self["Weight"] or 1)
+
+                if self.FadeTime <= 0 then
+                    if not self["FadedLastFrame"] then
+                        self["FadedLastFrame"] = true
+                        self.FadeTime = 0
+                        return
+                    end
+                    self["FadedLastFrame"] = nil
+                    self.FadeTime = nil
+                    self.FadeMax = nil
+                    self.FadeDelta = nil
+                    self.FadingAnimation = nil
+                    self["IsPlaying"] = false
+                    connection:Disconnect()
+                    self["_tempLoop"] = nil
+                    self.TimePosition = 0
+                    SafeCallEvent(self["_fireEnded"])
+                    coroutine.close(self["Task"])
+                    self.Settings.CanTransformMotor6D = false
+                end
+            end
+        end)
+    end)
+    coroutine.resume(self.Task)
+end
+
+return module
