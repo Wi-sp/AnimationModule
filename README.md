@@ -2,7 +2,7 @@
 
 local Player = game.Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
-local AnimHandler = loadstring(game:HttpGet("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/MainModule"))()
+local AnimHandler = loadstring(game:HttpGet("https://raw.githubusercontent.com/Wi-sp/AnimationModule/refs/heads/main/Main"))()
 
 -- Load and prepare the walk animation
 local Walk = game:GetObjects("rbxassetid://128808444469386")[1] --Change the id here to whatever
