@@ -1,4 +1,4 @@
---  Original By @Yarik_superpro https://github.com/ProudNamed/
+--  Original By @Yarik_superpro https://github.com/ProudNamed
 
 -- Revamped By w.is.p On Discord 
 local HttpService = game:GetService("HttpService")
@@ -137,7 +137,7 @@ local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyF
         end
     end
     local FirstFrame, SecondFrame = KeyFrameTable[FirstIndex], KeyFrameTable[SecondIndex]
-    weight = 1
+    weight = SecondFrame["Data"][JointName]["Weight"]
     if Animate == nil or Animate == "Animate" then
         local LinearLerpValue = ilerp(Time, FirstFrame.Time, SecondFrame.Time)
         local JointDataFirst, JointDataSecond = FirstFrame["Data"][JointName], SecondFrame["Data"][JointName]
