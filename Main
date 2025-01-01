@@ -348,8 +348,9 @@ function module:Stop(FadeTime: number)
     if self.FadingAnimation or not self["IsPlaying"] then return end
     self["_tempLoop"] = true
     SafeCallEvent(self["_fireStopped"])
+    
     if FadeTime then
-        if type(FadeTime) ~= "number" then FadeTime = 0.5 end
+        if type(FadeTime) ~= "number" then FadeTime = 0.5 end -- Set default fade time to 0.5 seconds
         if not self.FadeTime or self.FadeTime == 0 then
             self.FadeTime = FadeTime
         end
@@ -360,6 +361,41 @@ function module:Stop(FadeTime: number)
         self["FadeMax"] = self.FadeTime
         self["FadeDelta"] = self["TimePosition"]
         self["IsPlaying"] = true
+
+        -- Gradually reduce weight over the fade time
+        local startTime = tick()
+        local connection = UpdateEachFrame:Connect(function()
+            local elapsed = tick() - startTime
+            if elapsed >= self.FadeTime then
+                self["IsPlaying"] = false
+                self.Settings.CanTransformMotor6D = false
+                connection:Disconnect()
+                SafeCallEvent(self["_fireEnded"])
+                return
+            end
+            
+            -- Calculate the current weight based on elapsed time
+            local weightFactor = 1 - (elapsed / self.FadeTime)
+            self["WeightCurrent"] = self["Weight"] * weightFactor
+            
+            -- Update joint positions with the current weight
+            local CurrentPositionOfJoints = {}
+            for i, v in self.Animation do
+                for _i, _v in v["Data"] do
+                    if not CurrentPositionOfJoints[_i] then
+                        local cframe, weight = GetFinalPositionOfJointTime(_i, self["TimePosition"], self.Animation, self.Settings.Animate, self["WeightCurrent"])
+                        if cframe then
+                            CurrentPositionOfJoints[_i] = cframe
+                        end
+                    end
+                end
+            end
+
+            -- Transform motors with the updated weight
+            for i, v in CurrentPositionOfJoints do
+                TransformMotor6D(self.Motor6D, i, v)
+            end
+        end)
     else
         self["IsPlaying"] = false
         self.Settings.CanTransformMotor6D = false
