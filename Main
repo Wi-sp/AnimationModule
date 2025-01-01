@@ -182,7 +182,7 @@ end
 
 local NotPassedSettings = {
     ["StartsAt"] = 0;
-    ["CanTransformMotor6D"] = true; -- Don't touch
+    ["CanTransformMotor6D"] = true; -- Dont change this
     ["Animate"] = "Animate"; -- "Animate"|"First"|"Last"|nil
     ["UpsyncThePlaying"] = "Default"; -- "Default"|"Ramp"|"SpeedUp"|nil
 }
@@ -350,7 +350,7 @@ function module:Stop(FadeTime: number)
     SafeCallEvent(self["_fireStopped"])
     
     if FadeTime then
-        if type(FadeTime) ~= "number" then FadeTime = 0.5 end -- Set default fade time to 0.5 seconds
+        if type(FadeTime) ~= "number" then FadeTime = 0.5 end 
         if not self.FadeTime or self.FadeTime == 0 then
             self.FadeTime = FadeTime
         end
@@ -362,7 +362,6 @@ function module:Stop(FadeTime: number)
         self["FadeDelta"] = self["TimePosition"]
         self["IsPlaying"] = true
 
-        -- Gradually reduce weight over the fade time
         local startTime = tick()
         local connection = UpdateEachFrame:Connect(function()
             local elapsed = tick() - startTime
@@ -374,11 +373,9 @@ function module:Stop(FadeTime: number)
                 return
             end
             
-            -- Calculate the current weight based on elapsed time
             local weightFactor = 1 - (elapsed / self.FadeTime)
             self["WeightCurrent"] = self["Weight"] * weightFactor
             
-            -- Update joint positions with the current weight
             local CurrentPositionOfJoints = {}
             for i, v in self.Animation do
                 for _i, _v in v["Data"] do
@@ -391,7 +388,6 @@ function module:Stop(FadeTime: number)
                 end
             end
 
-            -- Transform motors with the updated weight
             for i, v in CurrentPositionOfJoints do
                 TransformMotor6D(self.Motor6D, i, v)
             end
@@ -436,7 +432,7 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
         end
     end
 
-    self["_debugSpeed"] = Speed or 1 -- Set speed to a default value if not provided
+    self["_debugSpeed"] = Speed or 1 
     SafeCallEvent(self["_fireEvent"], "MarkerSignal", "Play")
     self["Task"] = coroutine.create(function()
         self["IsPlaying"] = true
@@ -444,18 +440,15 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
         connection = UpdateEachFrame:Connect(function(delta1: number, delta2: number)
             if not self["IsPlaying"] then return end
             
-            -- Calculate delta based on speed
             local delta = delta1 * self["_debugSpeed"]
-            self["TimePosition"] = math.clamp(self["TimePosition"] + delta, 0, self["Length"]) -- Clamp time position to prevent overflow
+            self["TimePosition"] = math.clamp(self["TimePosition"] + delta, 0, self["Length"]) 
 
-            -- Call events only if necessary
             local OkTest = CallEvents(self.Animation, self["_fireEvent"], self["TimePosition"], UsedEventMarkers)
             if OkTest then
                 UsedEventMarkers = {}
                 UsedEventMarkers[tostring(OkTest)] = OkTest
             end
 
-            -- Update joint positions efficiently
             local CurrentPositionOfJoints = {}
             for i, v in self.Animation do
                 for _i, _v in v["Data"] do
@@ -468,12 +461,10 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                 end
             end
 
-            -- Transform motors only if there are updates
             for i, v in CurrentPositionOfJoints do
                 TransformMotor6D(self.Motor6D, i, v)
             end
 
-            -- Handle looping and stopping logic
             if self["TimePosition"] >= self["Length"] then
                 if self["Looped"] then
                     self["TimePosition"] = self.Settings.StartsAt
