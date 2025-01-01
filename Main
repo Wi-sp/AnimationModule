@@ -1,6 +1,6 @@
 --  Original By @Yarik_superpro https://github.com/ProudNamed
 
--- Everything Revamped By w.is.p On Discord 
+-- Revamped By w.is.p On Discord 
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -83,12 +83,6 @@ local function TransformMotor6D(MotorListm, MotorName: string, Cframe: CFrame)
     end
 end
 
-local function UpdateMotor6DPositions(CurrentPositionOfJoints, Motor6D)
-    for jointName, cframe in CurrentPositionOfJoints do
-        TransformMotor6D(Motor6D, jointName, cframe)
-    end
-end
-
 local function ilerp(value: number, minimum: number, maximum: number): number
     if not value or not minimum or not maximum then warn("Empty") return 0 end
     if type(value) ~= "number" or type(minimum) ~= "number" or type(maximum) ~= "number" then warn("Must be a number") return 0 end
@@ -144,21 +138,18 @@ local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyF
     end
     local FirstFrame, SecondFrame = KeyFrameTable[FirstIndex], KeyFrameTable[SecondIndex]
     weight = SecondFrame["Data"][JointName]["Weight"]
-    
     if Animate == nil or Animate == "Animate" then
         local LinearLerpValue = ilerp(Time, FirstFrame.Time, SecondFrame.Time)
         local JointDataFirst, JointDataSecond = FirstFrame["Data"][JointName], SecondFrame["Data"][JointName]
         local EasingLerp = TweenService:GetValue(LinearLerpValue, JointDataSecond.EasingStyle, JointDataSecond.EasingDirection)
         local JointCFrame_first, JointCFrame_second = JointDataFirst["CFrame"], JointDataSecond["CFrame"]
         local JointWeight_first, JointWeight_second = JointDataFirst["Weight"], JointDataSecond["Weight"]
-        
         if JointWeight_first < 1 then
             JointCFrame_first = JointCFrame_first:Lerp(cframe_zero, ilerp(JointWeight_first, 0, 1))
         end
         if JointWeight_second < 1 then
             JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, ilerp(JointWeight_second, 0, 1))
         end
-        
         return JointCFrame_first:Lerp(JointCFrame_second, EasingLerp), weight
     else
         return (Animate == "First") and FirstFrame["Data"][JointName]["CFrame"] or SecondFrame["Data"][JointName]["CFrame"]
@@ -191,9 +182,9 @@ end
 
 local NotPassedSettings = {
     ["StartsAt"] = 0;
-    ["CanTransformMotor6D"] = true; 
-    ["Animate"] = "Animate"; 
-    ["UpsyncThePlaying"] = "Default"; 
+    ["CanTransformMotor6D"] = true; -- Don't touch
+    ["Animate"] = "Animate"; -- "Animate"|"First"|"Last"|nil
+    ["UpsyncThePlaying"] = "Default"; -- "Default"|"Ramp"|"SpeedUp"|nil
 }
 
 local MethodLockEditingTable = {
@@ -215,10 +206,10 @@ function module.new(Motor6DTable: Model | {}, KeyFrameSequance: KeyframeSequence
     self["TimePosition"] = 0
     self["IsPlaying"] = false
     self["Speed"] = 1
-    self["Weight"] = 0
-    self["WeightCurrent"] = 0
+    self["Weight"] = 1
+    self["WeightCurrent"] = 1
     self["WeightTarget"] = 0
-    self["Priority"] = Enum.AnimationPriority.Action
+    self["Priority"] = Enum.AnimationPriority.Core
     self["Name"] = ""
     if typeof(Motor6DTable) == "Instance" and Motor6DTable:IsA("Model") then
         Motor6DTable = AutoGetMotor6D(Motor6DTable, Motor6DorBone)
@@ -348,7 +339,7 @@ end
 function module:AdjustWeight(weight: number, fadeTime: number)
     self["Weight"] = weight
     self["WeightCurrent"] = weight
-    self["WeightTarget"] = 0
+    self["WeightTarget"] = weight
     self.FadeMax = fadeTime
     self.FadeTime = fadeTime
 end
@@ -403,6 +394,7 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
             IsGroup = true
             for i, v in self["Group"]["i"] do
                 v.Settings.CanTransformMotor6D = false
+                v.Priority = self["Priority"]
             end
             self.Settings.CanTransformMotor6D = true
         end
@@ -483,8 +475,6 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                 end
             end
 
-            UpdateMotor6DPositions(CurrentPositionOfJoints, self.Motor6D)
-
             if IsGroup then
                 if not PlayingAnimations or (TableLen(PlayingAnimations) == 1 and self.DataID == PlayingAnimations[self.DataID]) then
                     for i, v in CurrentPositionOfJoints do
@@ -503,7 +493,7 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                     if GiveItselfCanTransform then
                         local Priorities = {}
                         for i, v in PlayingAnimations do
-                            Priorities[i] = self["Group"]["i"][i].Weight
+                            Priorities[i] = self["Group"]["i"][i].Priority
                         end
 
                         local OnlyPlayAnimations = {}
@@ -583,7 +573,6 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                             self.FadingAnimation = true
                             self["IsPlaying"] = true
                             self["FadeDelta"] = self["TimePosition"]
-                            self["TimePosition"] = self.Settings.StartsAt
                             self["_tempLoop"] = true
                         end
                         self["TimePosition"] = self.Settings.StartsAt
@@ -622,18 +611,12 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                     self.TimePosition = 0
                     SafeCallEvent(self["_fireEnded"])
                     coroutine.close(self["Task"])
+                    self.Settings.CanTransformMotor6D = false
                 end
             end
         end)
     end)
     coroutine.resume(self.Task)
-end
-
--- New function to ensure animations play on both sides
-function module:PlayOnBothSides(FadeTime: number, Weight: number, TimeStamp: number, Speed: number)
-    self:Play(FadeTime, Weight, TimeStamp, Speed)
-    -- Duplicate the play call for the opposite side
-    self:Play(FadeTime, Weight, TimeStamp, Speed) -- Adjust this to play on the opposite side
 end
 
 return module
