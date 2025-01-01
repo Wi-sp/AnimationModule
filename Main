@@ -402,20 +402,12 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
     self["WeightCurrent"] = Weight
     self["Weight"] = Weight
     self:StopFading()
-    if self["_Connection"] and typeof(self["_Connection"]) == "RBXScriptConnection" then
+    
+    if self["_Connection"] then
         self["_Connection"]:Disconnect()
+        self["_Connection"] = nil
     end
-    if self.Task and typeof(self.Task) == "thread" then
-        coroutine.close(self.Task)
-    end
-
-    if FadeTime and type(FadeTime) == "number" then
-        self["FadeTime"] = FadeTime
-        self["FadeMax"] = FadeTime
-    end
-
-    local IsGroup, MadeOneLoop, FirstFramePlayed, UsedIt = false, false, true, false
-    local UsedEventMarkers = {}
+    
     if TimeStamp and type(TimeStamp) == "number" then
         TimeStamp = math.min(TimeStamp, self["Length"])
         self["TimePosition"] = TimeStamp
@@ -423,7 +415,6 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
 
     if self["Group"] and typeof(self["Group"]) == "table" then
         if self["Group"]["i"][self.DataID] == self then
-            IsGroup = true
             for i, v in self["Group"]["i"] do
                 v.Settings.CanTransformMotor6D = false
                 v.Priority = self["Priority"]
@@ -433,53 +424,50 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
     end
 
     self["_debugSpeed"] = Speed or 1 
+    self["IsPlaying"] = true
     SafeCallEvent(self["_fireEvent"], "MarkerSignal", "Play")
-    self["Task"] = coroutine.create(function()
-        self["IsPlaying"] = true
-        local connection: RBXScriptConnection
-        connection = UpdateEachFrame:Connect(function(delta1: number, delta2: number)
-            if not self["IsPlaying"] then return end
-            
-            local delta = delta1 * self["_debugSpeed"]
-            self["TimePosition"] = math.clamp(self["TimePosition"] + delta, 0, self["Length"]) 
 
-            local OkTest = CallEvents(self.Animation, self["_fireEvent"], self["TimePosition"], UsedEventMarkers)
-            if OkTest then
-                UsedEventMarkers = {}
-                UsedEventMarkers[tostring(OkTest)] = OkTest
-            end
+    local UsedEventMarkers = {}
+    self["_Connection"] = UpdateEachFrame:Connect(function(delta1: number)
+        if not self["IsPlaying"] then return end
+        
+        local delta = delta1 * self["_debugSpeed"]
+        self["TimePosition"] = math.clamp(self["TimePosition"] + delta, 0, self["Length"]) 
 
-            local CurrentPositionOfJoints = {}
-            for i, v in self.Animation do
-                for _i, _v in v["Data"] do
-                    if not CurrentPositionOfJoints[_i] then
-                        local cframe, weight = GetFinalPositionOfJointTime(_i, self["TimePosition"], self.Animation, self.Settings.Animate, self["WeightCurrent"])
-                        if cframe then
-                            CurrentPositionOfJoints[_i] = cframe
-                        end
+        local OkTest = CallEvents(self.Animation, self["_fireEvent"], self["TimePosition"], UsedEventMarkers)
+        if OkTest then
+            UsedEventMarkers = {}
+            UsedEventMarkers[tostring(OkTest)] = OkTest
+        end
+
+        local CurrentPositionOfJoints = {}
+        for i, v in self.Animation do
+            for _i, _v in v["Data"] do
+                if not CurrentPositionOfJoints[_i] then
+                    local cframe, weight = GetFinalPositionOfJointTime(_i, self["TimePosition"], self.Animation, self.Settings.Animate, self["WeightCurrent"])
+                    if cframe then
+                        CurrentPositionOfJoints[_i] = cframe
                     end
                 end
             end
+        end
 
-            for i, v in CurrentPositionOfJoints do
-                TransformMotor6D(self.Motor6D, i, v)
-            end
+        for i, v in CurrentPositionOfJoints do
+            TransformMotor6D(self.Motor6D, i, v)
+        end
 
-            if self["TimePosition"] >= self["Length"] then
-                if self["Looped"] then
-                    self["TimePosition"] = self.Settings.StartsAt
-                    SafeCallEvent(self["_fireDidLoop"], true)
-                else
-                    self["IsPlaying"] = false
-                    SafeCallEvent(self["_fireStopped"])
-                    connection:Disconnect()
-                    SafeCallEvent(self["_fireEnded"])
-                    coroutine.close(self["Task"])
-                end
+        if self["TimePosition"] >= self["Length"] then
+            if self["Looped"] then
+                self["TimePosition"] = self.Settings.StartsAt
+                SafeCallEvent(self["_fireDidLoop"], true)
+            else
+                self["IsPlaying"] = false
+                SafeCallEvent(self["_fireStopped"])
+                self["_Connection"]:Disconnect()
+                SafeCallEvent(self["_fireEnded"])
             end
-        end)
+        end
     end)
-    coroutine.resume(self.Task)
 end
 
 return module
