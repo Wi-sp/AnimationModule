@@ -83,6 +83,19 @@ local function TransformMotor6D(MotorListm, MotorName: string, Cframe: CFrame)
     end
 end
 
+local function UpdateMotor6DPositions(CurrentPositionOfJoints, Motor6D)
+    for jointName, cframe in CurrentPositionOfJoints do
+        TransformMotor6D(Motor6D, jointName, cframe)
+        if jointName:find("Left") then
+            local mirroredJointName = jointName:gsub("Left", "Right")
+            TransformMotor6D(Motor6D, mirroredJointName, cframe)
+        elseif jointName:find("Right") then
+            local mirroredJointName = jointName:gsub("Right", "Left")
+            TransformMotor6D(Motor6D, mirroredJointName, cframe)
+        end
+    end
+end
+
 local function ilerp(value: number, minimum: number, maximum: number): number
     if not value or not minimum or not maximum then warn("Empty") return 0 end
     if type(value) ~= "number" or type(minimum) ~= "number" or type(maximum) ~= "number" then warn("Must be a number") return 0 end
@@ -473,6 +486,8 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                     end
                 end
             end
+
+            UpdateMotor6DPositions(CurrentPositionOfJoints, self.Motor6D)
 
             if IsGroup then
                 if not PlayingAnimations or (TableLen(PlayingAnimations) == 1 and self.DataID == PlayingAnimations[self.DataID]) then
