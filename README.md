@@ -1,15 +1,36 @@
 -- How to use example...
 
-local Player = game.Players.LocalPlayer
-local Character = Player.Character or Player.CharacterAdded:Wait()
-local AnimHandler = loadstring(game:HttpGet("https://raw.githubusercontent.com/Wi-sp/AnimationModule/refs/heads/main/Main"))()
+local Player = game.Players.LocalPlayer -- Get the local player
+local Character = Player.Character or Player.CharacterAdded:Wait() -- Wait for the character to load if not already available
 
--- Load and prepare the walk animation
-local Walk = game:GetObjects("rbxassetid://128808444469386")[1] --Change the id here to whatever
-Walk.Parent = Character
-game:GetService("ContentProvider"):PreloadAsync({Walk})
+-- Preload the animation handler module
+local AnimHandlerSource = game:HttpGet("https://raw.githubusercontent.com/Wi-sp/AnimationModule/refs/heads/main/Main")
+local AnimHandler = loadstring(AnimHandlerSource)()
 
--- Create and play the walk animation
+-- Load the animation asset using its asset ID
+local Walk = game:GetObjects("rbxassetid://99536403684167")[1] -- Change the ID here to whatever you want.
+
+-- Create a new animation instance using the animation handler
+-- The first argument is the character, and the second is the animation object
 local WalkAnim = AnimHandler.new(Character, Walk)
-WalkAnim:Play()
 
+-- Adjust the weight and priority of the animation before playing
+WalkAnim:AdjustWeight(1, 0.15) -- Set weight to 1 for full influence; the second argument is the fade time
+WalkAnim.Priority = Enum.AnimationPriority.Action -- Set the animation priority to Action
+
+-- Play the animation
+WalkAnim:Play() -- Start playing the animation
+
+-- Additional methods you can use with the animation instance:
+
+-- Adjust the speed of the animation
+-- WalkAnim:AdjustSpeed(1.5) -- Set the speed to 1.5 times the normal speed
+
+-- Stop the animation with a fade-out effect
+-- WalkAnim:Stop(0.5) -- Stop the animation over 0.5 seconds for a smooth transition
+
+-- Cancel the animation and reset its state
+-- local savedPosition = WalkAnim:Cancel() -- Cancel the animation and return the last position
+
+-- Destroy the animation instance when it's no longer needed
+-- WalkAnim:Destroy() -- Clean up the animation instance to free resources
