@@ -24,10 +24,10 @@ WalkAnim:Play() -- Start playing the animation
 -- Additional methods you can use with the animation instance:
 
 -- Adjust the speed of the animation
--- WalkAnim:AdjustSpeed(1.5) -- Set the speed to 1.5 times the normal speed
+-- WalkAnim:AdjustSpeed(1.5) -- Set the speed to 1.5 times the normal speed (You can change the speed)
 
 -- Stop the animation with a fade-out effect
--- WalkAnim:Stop(0.5) -- Stop the animation over 0.5 seconds for a smooth transition
+-- WalkAnim:Stop() -- Stop the animation
 
 -- Cancel the animation and reset its state
 -- local savedPosition = WalkAnim:Cancel() -- Cancel the animation and return the last position
