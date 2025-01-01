@@ -86,13 +86,6 @@ end
 local function UpdateMotor6DPositions(CurrentPositionOfJoints, Motor6D)
     for jointName, cframe in CurrentPositionOfJoints do
         TransformMotor6D(Motor6D, jointName, cframe)
-        if jointName:find("Left") then
-            local mirroredJointName = jointName:gsub("Left", "Right")
-            TransformMotor6D(Motor6D, mirroredJointName, cframe)
-        elseif jointName:find("Right") then
-            local mirroredJointName = jointName:gsub("Right", "Left")
-            TransformMotor6D(Motor6D, mirroredJointName, cframe)
-        end
     end
 end
 
@@ -151,18 +144,21 @@ local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyF
     end
     local FirstFrame, SecondFrame = KeyFrameTable[FirstIndex], KeyFrameTable[SecondIndex]
     weight = SecondFrame["Data"][JointName]["Weight"]
+    
     if Animate == nil or Animate == "Animate" then
         local LinearLerpValue = ilerp(Time, FirstFrame.Time, SecondFrame.Time)
         local JointDataFirst, JointDataSecond = FirstFrame["Data"][JointName], SecondFrame["Data"][JointName]
         local EasingLerp = TweenService:GetValue(LinearLerpValue, JointDataSecond.EasingStyle, JointDataSecond.EasingDirection)
         local JointCFrame_first, JointCFrame_second = JointDataFirst["CFrame"], JointDataSecond["CFrame"]
         local JointWeight_first, JointWeight_second = JointDataFirst["Weight"], JointDataSecond["Weight"]
+        
         if JointWeight_first < 1 then
             JointCFrame_first = JointCFrame_first:Lerp(cframe_zero, ilerp(JointWeight_first, 0, 1))
         end
         if JointWeight_second < 1 then
             JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, ilerp(JointWeight_second, 0, 1))
         end
+        
         return JointCFrame_first:Lerp(JointCFrame_second, EasingLerp), weight
     else
         return (Animate == "First") and FirstFrame["Data"][JointName]["CFrame"] or SecondFrame["Data"][JointName]["CFrame"]
