@@ -80,6 +80,7 @@ local function TransformMotor6D(MotorListm, MotorName: string, Cframe: CFrame)
         if a and (typeof(a) == "Instance" and (a:IsA("Motor6D") or a:IsA("Bone"))) then
             a.Transform = Cframe
             a.Weight = a.Weight or 1
+            a.Transform = a.Transform:Lerp(Cframe, a.Weight)
         end
     end
 end
@@ -151,7 +152,8 @@ local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyF
         if JointWeight_second < 1 then
             JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, ilerp(JointWeight_second, 0, 1))
         end
-        return JointCFrame_first:Lerp(JointCFrame_second, EasingLerp), weight
+        local finalCFrame = JointCFrame_first:Lerp(JointCFrame_second, EasingLerp * CurrentWeight)
+        return finalCFrame, weight
     else
         return (Animate == "First") and FirstFrame["Data"][JointName]["CFrame"] or SecondFrame["Data"][JointName]["CFrame"]
     end
@@ -371,6 +373,7 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
     self["WeightCurrent"] = Weight
     self["Weight"] = Weight
     self["WeightTarget"] = Weight
+    self["FadeTime"] = FadeTime
     self:StopFading()
     if self["_Connection"] and typeof(self["_Connection"]) == "RBXScriptConnection" then
         self["_Connection"]:Disconnect()
