@@ -144,15 +144,17 @@ local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyF
         local LinearLerpValue = ilerp(Time, FirstFrame.Time, SecondFrame.Time)
         local JointDataFirst, JointDataSecond = FirstFrame["Data"][JointName], SecondFrame["Data"][JointName]
         local EasingLerp = TweenService:GetValue(LinearLerpValue, JointDataSecond.EasingStyle, JointDataSecond.EasingDirection)
-        local JointCFrame_first, JointCFrame_second = JointDataFirst["CFrame"], JointDataSecond["CFrame"]
-        local JointWeight_first, JointWeight_second = JointDataFirst["Weight"], JointDataSecond["Weight"]
+        local JointCFrame_first = KeyFrameTable[1] and KeyFrameTable[1].CFrame or CFrame.new()
+        local JointCFrame_second = KeyFrameTable[2] and KeyFrameTable[2].CFrame or CFrame.new()
+        local JointWeight_first = KeyFrameTable[1] and KeyFrameTable[1].Weight or 0
+        local JointWeight_second = KeyFrameTable[2] and KeyFrameTable[2].Weight or 0
         if JointWeight_first < 1 then
             JointCFrame_first = JointCFrame_first:Lerp(cframe_zero, ilerp(JointWeight_first, 0, 1))
         end
         if JointWeight_second < 1 then
             JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, ilerp(JointWeight_second, 0, 1))
         end
-        local finalCFrame = JointCFrame_first:Lerp(JointCFrame_second, EasingLerp * CurrentWeight)
+        local finalCFrame = JointCFrame_first:Lerp(JointCFrame_second, (EasingLerp or 0) * CurrentWeight)
         return finalCFrame, weight
     else
         return (Animate == "First") and FirstFrame["Data"][JointName]["CFrame"] or SecondFrame["Data"][JointName]["CFrame"]
