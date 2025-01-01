@@ -1,4 +1,4 @@
--- How to use example...
+-- How to use example... (Copy the RAW file of this or it will get messed up)
 
 local Player = game.Players.LocalPlayer -- Get the local player
 local Character = Player.Character or Player.CharacterAdded:Wait() -- Wait for the character to load if not already available
