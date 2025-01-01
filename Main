@@ -139,32 +139,54 @@ local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyF
     local returned, weight = nil, 1
     local seen_in = FramesWhereJointAppeared(JointName, KeyFrameTable)
     local FirstIndex, SecondIndex = 1, 1
+
     for i, v in seen_in do
         local a = KeyFrameTable[i]
         if a.Time <= Time then
-            FirstIndex, SecondIndex = i, i
+            FirstIndex = i
+            SecondIndex = i
         else
             SecondIndex = i
             break
         end
     end
-    local FirstFrame, SecondFrame = KeyFrameTable[FirstIndex], KeyFrameTable[SecondIndex]
+
+    local FirstFrame = KeyFrameTable[FirstIndex]
+    local SecondFrame = KeyFrameTable[SecondIndex]
+    
+    if not FirstFrame or not SecondFrame then
+        return cframe_zero, 1
+    end
+
     weight = SecondFrame["Data"][JointName]["Weight"]
+
     if Animate == nil or Animate == "Animate" then
         local LinearLerpValue = ilerp(Time, FirstFrame.Time, SecondFrame.Time)
-        local JointDataFirst, JointDataSecond = FirstFrame["Data"][JointName], SecondFrame["Data"][JointName]
+        local JointDataFirst = FirstFrame["Data"][JointName]
+        local JointDataSecond = SecondFrame["Data"][JointName]
+        
+        if not JointDataFirst or not JointDataSecond then
+            return cframe_zero, 1
+        end
+
         local EasingLerp = TweenService:GetValue(LinearLerpValue, JointDataSecond.EasingStyle, JointDataSecond.EasingDirection)
-        local JointCFrame_first, JointCFrame_second = JointDataFirst["CFrame"], JointDataSecond["CFrame"]
-        local JointWeight_first, JointWeight_second = JointDataFirst["Weight"], JointDataSecond["Weight"]
+        local JointCFrame_first = JointDataFirst["CFrame"]
+        local JointCFrame_second = JointDataSecond["CFrame"]
+        local JointWeight_first = JointDataFirst["Weight"]
+        local JointWeight_second = JointDataSecond["Weight"]
+
         if JointWeight_first < 1 then
-            JointCFrame_first = JointCFrame_first:Lerp(cframe_zero, ilerp(JointWeight_first, 0, 1))
+            JointCFrame_first = JointCFrame_first:Lerp(cframe_zero, JointWeight_first)
         end
         if JointWeight_second < 1 then
-            JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, ilerp(JointWeight_second, 0, 1))
+            JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, JointWeight_second)
         end
+
         return JointCFrame_first:Lerp(JointCFrame_second, EasingLerp), weight
     else
-        return (Animate == "First") and FirstFrame["Data"][JointName]["CFrame"] or SecondFrame["Data"][JointName]["CFrame"]
+        return (Animate == "First") 
+            and FirstFrame["Data"][JointName]["CFrame"] 
+            or SecondFrame["Data"][JointName]["CFrame"]
     end
 end
 
