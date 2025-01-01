@@ -7,16 +7,28 @@ local TweenService = game:GetService("TweenService")
 local table_create = table.create
 local cframe_zero = CFrame.new(0, 0, 0)
 
-local function loadModule(url)
+local PreloadedModules = {
+    PriorityTable = game:HttpGet("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/Priority"),
+    ConvertToTable = game:HttpGet("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/ConvertToTable"),
+    AutoGetMotor6D = game:HttpGet("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/AutoGetMotor6D"),
+    GetFrameInBetween = game:HttpGet("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/GetFrameInBetween"),
+    GroupTamplate = game:HttpGet("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/GroupTemplate"),
+    ReturnableTypes = game:HttpGet("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/ReturnableTypes")
+}
+
+local function loadModule(moduleName)
+    if PreloadedModules[moduleName] then
+        return loadstring(PreloadedModules[moduleName])()
+    end
     return loadstring(game:HttpGet(url))()
 end
 
-local PriorityTable = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/Priority")
-local ConvertToTable = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/ConvertToTable")
-local AutoGetMotor6D = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/AutoGetMotor6D")
-local GetFrameInBetween = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/GetFrameInBetween")
-local GroupTamplate = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/GroupTemplate")
-local ReturnableTypes = loadModule("https://raw.githubusercontent.com/ProudNamed/SuperLightning/refs/heads/main/AnimModule/ReturnableTypes")
+local PriorityTable = loadModule("PriorityTable")
+local ConvertToTable = loadModule("ConvertToTable")
+local AutoGetMotor6D = loadModule("AutoGetMotor6D")
+local GetFrameInBetween = loadModule("GetFrameInBetween")
+local GroupTamplate = loadModule("GroupTamplate")
+local ReturnableTypes = loadModule("ReturnableTypes")
 
 type AnimType = ReturnableTypes.AnimationSequance
 type SettingsType = ReturnableTypes.Setting
@@ -428,10 +440,15 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
     SafeCallEvent(self["_fireEvent"], "MarkerSignal", "Play")
 
     local UsedEventMarkers = {}
-    self["_Connection"] = UpdateEachFrame:Connect(function(delta1: number)
+    local lastTime = os.clock()
+    
+    self["_Connection"] = UpdateEachFrame:Connect(function()
         if not self["IsPlaying"] then return end
         
-        local delta = delta1 * self["_debugSpeed"]
+        local currentTime = os.clock()
+        local delta = (currentTime - lastTime) * self["_debugSpeed"]
+        lastTime = currentTime
+        
         self["TimePosition"] = math.clamp(self["TimePosition"] + delta, 0, self["Length"]) 
 
         local OkTest = CallEvents(self.Animation, self["_fireEvent"], self["TimePosition"], UsedEventMarkers)
