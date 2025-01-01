@@ -1,6 +1,6 @@
 --  Original By @Yarik_superpro https://github.com/ProudNamed
 
--- Revamped By w.is.p On Discord 
+-- Everything Revamped By w.is.p On Discord 
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -492,7 +492,7 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                     if GiveItselfCanTransform then
                         local Priorities = {}
                         for i, v in PlayingAnimations do
-                            Priorities[i] = self["Group"]["i"][i].Priority
+                            Priorities[i] = self["Group"]["i"][i].Weight
                         end
 
                         local OnlyPlayAnimations = {}
@@ -572,6 +572,7 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                             self.FadingAnimation = true
                             self["IsPlaying"] = true
                             self["FadeDelta"] = self["TimePosition"]
+                            self["TimePosition"] = self.Settings.StartsAt
                             self["_tempLoop"] = true
                         end
                         self["TimePosition"] = self.Settings.StartsAt
@@ -610,12 +611,18 @@ function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed:
                     self.TimePosition = 0
                     SafeCallEvent(self["_fireEnded"])
                     coroutine.close(self["Task"])
-                    self.Settings.CanTransformMotor6D = false
                 end
             end
         end)
     end)
     coroutine.resume(self.Task)
+end
+
+-- New function to ensure animations play on both sides
+function module:PlayOnBothSides(FadeTime: number, Weight: number, TimeStamp: number, Speed: number)
+    self:Play(FadeTime, Weight, TimeStamp, Speed)
+    -- Duplicate the play call for the opposite side
+    self:Play(FadeTime, Weight, TimeStamp, Speed) -- Adjust this to play on the opposite side
 end
 
 return module
