@@ -79,6 +79,7 @@ local function TransformMotor6D(MotorListm, MotorName: string, Cframe: CFrame)
         local a = MotorListm[MotorName]
         if a and (typeof(a) == "Instance" and (a:IsA("Motor6D") or a:IsA("Bone"))) then
             a.Transform = Cframe
+            a.Weight = a.Weight or 1
         end
     end
 end
@@ -369,6 +370,7 @@ end
 function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed: number)
     self["WeightCurrent"] = Weight
     self["Weight"] = Weight
+    self["WeightTarget"] = Weight
     self:StopFading()
     if self["_Connection"] and typeof(self["_Connection"]) == "RBXScriptConnection" then
         self["_Connection"]:Disconnect()
