@@ -79,8 +79,6 @@ local function TransformMotor6D(MotorListm, MotorName: string, Cframe: CFrame)
         local a = MotorListm[MotorName]
         if a and (typeof(a) == "Instance" and (a:IsA("Motor6D") or a:IsA("Bone"))) then
             a.Transform = Cframe
-            a.Weight = a.Weight or 1
-            a.Transform = a.Transform:Lerp(Cframe, a.Weight)
         end
     end
 end
@@ -125,27 +123,37 @@ local function FramesWhereJointAppeared(JointName, KeyFrameTable)
 end
 
 local function GetFinalPositionOfJointTime(JointName: string, Time: number, KeyFrameTable: any, Animate: any, CurrentWeight: number)
-    -- Ensure KeyFrameTable has at least two keyframes
-    if not KeyFrameTable or #KeyFrameTable < 2 then
-        return CFrame.new(), 0 -- Return default values if not enough keyframes
+    if Animate == nil then Animate = true end
+    local returned, weight = nil, 1
+    local seen_in = FramesWhereJointAppeared(JointName, KeyFrameTable)
+    local FirstIndex, SecondIndex = 1, 1
+    for i, v in seen_in do
+        local a = KeyFrameTable[i]
+        if a.Time <= Time then
+            FirstIndex, SecondIndex = i, i
+        else
+            SecondIndex = i
+            break
+        end
     end
-
-    -- Initialize weights and CFrames with defaults
-    local JointWeight_first = KeyFrameTable[1].Weight or 0
-    local JointWeight_second = KeyFrameTable[2].Weight or 0
-
-    local JointCFrame_first = KeyFrameTable[1].CFrame or CFrame.new()
-    local JointCFrame_second = KeyFrameTable[2].CFrame or CFrame.new()
-
-    -- Ensure CurrentWeight is a number
-    CurrentWeight = CurrentWeight or 0
-
-    -- Ensure EasingLerp is defined
-    local EasingLerp = 1 -- Default value if not defined
-
-    -- Increase precision in interpolation
-    local finalCFrame = JointCFrame_first:Lerp(JointCFrame_second, (EasingLerp * CurrentWeight))
-    return finalCFrame, JointWeight_first + JointWeight_second -- Return combined weight
+    local FirstFrame, SecondFrame = KeyFrameTable[FirstIndex], KeyFrameTable[SecondIndex]
+    weight = SecondFrame["Data"][JointName]["Weight"]
+    if Animate == nil or Animate == "Animate" then
+        local LinearLerpValue = ilerp(Time, FirstFrame.Time, SecondFrame.Time)
+        local JointDataFirst, JointDataSecond = FirstFrame["Data"][JointName], SecondFrame["Data"][JointName]
+        local EasingLerp = TweenService:GetValue(LinearLerpValue, JointDataSecond.EasingStyle, JointDataSecond.EasingDirection)
+        local JointCFrame_first, JointCFrame_second = JointDataFirst["CFrame"], JointDataSecond["CFrame"]
+        local JointWeight_first, JointWeight_second = JointDataFirst["Weight"], JointDataSecond["Weight"]
+        if JointWeight_first < 1 then
+            JointCFrame_first = JointCFrame_first:Lerp(cframe_zero, ilerp(JointWeight_first, 0, 1))
+        end
+        if JointWeight_second < 1 then
+            JointCFrame_second = JointCFrame_second:Lerp(cframe_zero, ilerp(JointWeight_second, 0, 1))
+        end
+        return JointCFrame_first:Lerp(JointCFrame_second, EasingLerp), weight
+    else
+        return (Animate == "First") and FirstFrame["Data"][JointName]["CFrame"] or SecondFrame["Data"][JointName]["CFrame"]
+    end
 end
 
 local function ResetMotors6D(motorlist, self)
@@ -361,8 +369,6 @@ end
 function module:Play(FadeTime: number, Weight: number, TimeStamp: number, Speed: number)
     self["WeightCurrent"] = Weight
     self["Weight"] = Weight
-    self["WeightTarget"] = Weight
-    self["FadeTime"] = FadeTime
     self:StopFading()
     if self["_Connection"] and typeof(self["_Connection"]) == "RBXScriptConnection" then
         self["_Connection"]:Disconnect()
