@@ -195,9 +195,9 @@ end
 
 local NotPassedSettings = {
     ["StartsAt"] = 0;
-    ["CanTransformMotor6D"] = true; -- Don't touch
-    ["Animate"] = "Animate"; -- "Animate"|"First"|"Last"|nil
-    ["UpsyncThePlaying"] = "Default"; -- "Default"|"Ramp"|"SpeedUp"|nil
+    ["CanTransformMotor6D"] = true; 
+    ["Animate"] = "Animate"; 
+    ["UpsyncThePlaying"] = "Default"; 
 }
 
 local MethodLockEditingTable = {
@@ -219,10 +219,10 @@ function module.new(Motor6DTable: Model | {}, KeyFrameSequance: KeyframeSequence
     self["TimePosition"] = 0
     self["IsPlaying"] = false
     self["Speed"] = 1
-    self["Weight"] = 1
-    self["WeightCurrent"] = 1
+    self["Weight"] = 0
+    self["WeightCurrent"] = 0
     self["WeightTarget"] = 0
-    self["Priority"] = Enum.AnimationPriority.Core
+    self["Priority"] = Enum.AnimationPriority.Action
     self["Name"] = ""
     if typeof(Motor6DTable) == "Instance" and Motor6DTable:IsA("Model") then
         Motor6DTable = AutoGetMotor6D(Motor6DTable, Motor6DorBone)
