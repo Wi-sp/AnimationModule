@@ -1,3 +1,5 @@
+-- This code can play client sided animations from any Roblox game there is. It is fully Open Sourced you are allowed to improve it if you'd like.
+
 -- How to use example... (Copy the RAW file of this or it will get messed up)
 
 local Player = game.Players.LocalPlayer -- Get the local player
